@@ -8,13 +8,16 @@ import android.widget.Button;
 import android.widget.EditText;
 import android.widget.Toast;
 import androidx.appcompat.app.AppCompatActivity;
+import java.util.List;
 
 public class MainActivity extends AppCompatActivity {
 
     private EditText editTextBrigade;
     private Button buttonA, buttonB, buttonSend;
-    private EventDao eventDao; // ← Room DAO
+    private AppDao appDao; // ← Room DAO
     private Handler handler = new Handler(Looper.getMainLooper());
+    private String deviceCode;
+    private String appVersion = "1";
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -28,14 +31,19 @@ public class MainActivity extends AppCompatActivity {
         buttonSend = findViewById(R.id.buttonSend);
 
         // Инициализация Room
-        EventDatabase db = EventDatabase.getDatabase(this);
-        eventDao = db.eventDao();
+        AppDatabase db = AppDatabase.getDatabase(this);
+        appDao = db.appDao();
+
+        // Получаем device_code (постоянный для устройства)
+        deviceCode = getUniqueDeviceId();
 
         // Обработчики кнопок
-        String deviceId = getUniqueDeviceId();
-        buttonA.setOnClickListener(v -> logEvent("Кнопка A нажата", deviceId));
-        buttonB.setOnClickListener(v -> logEvent("Кнопка B нажата", deviceId));
-        buttonSend.setOnClickListener(v -> sendAllEventsToServer());
+        buttonA.setOnClickListener(v -> logAction("1", "Кнопка A нажата"));
+        buttonB.setOnClickListener(v -> logAction("2", "Кнопка B нажата"));
+        buttonSend.setOnClickListener(v -> sendUnsentLogsToServer());
+
+        // Предварительное создание действий в базе
+        initializeActions();
 
         // Фоновая отправка каждые 10 минут
         startBackgroundSender();
@@ -48,41 +56,66 @@ public class MainActivity extends AppCompatActivity {
         );
     }
 
-    private void logEvent(String text, String deviceId) {
+    private void initializeActions() {
+        new Thread(() -> {
+            try {
+                appDao.insertAction(new Action("Кнопка A нажата", "1", appVersion));
+            } catch (Exception e) {
+
+            }
+
+            try {
+                appDao.insertAction(new Action("Кнопка B нажата", "2", appVersion));
+            } catch (Exception e) {
+
+            }
+        }).start();
+    }
+
+    private void logAction(String actionCode, String actionText) {
         String brigadeNumber = editTextBrigade.getText().toString().trim();
         if (brigadeNumber.isEmpty()) {
             Toast.makeText(this, "Введите номер бригады", Toast.LENGTH_SHORT).show();
             return;
         }
 
-        // Создаём событие
-        Event event = new Event(
-                "REG001",
-                "SMC001",
-                brigadeNumber,
-                deviceId,
-                "Beta-test",
-                text
-        );
-
-        // Room требует фонового потока!
         new Thread(() -> {
-            eventDao.insertEvent(event);
+            // Создаем лог
+            Log log = new Log(actionCode, appVersion, deviceCode);
+            appDao.insertLog(log);
+
             runOnUiThread(() ->
                     Toast.makeText(MainActivity.this, "Событие записано", Toast.LENGTH_SHORT).show()
             );
         }).start();
     }
 
-    private void sendAllEventsToServer() {
+    private void sendUnsentLogsToServer() {
         new Thread(() -> {
-            // Получаем все события
-            // List<Event> events = eventDao.getAllEvents();
-            // Отправляем на сервер (пока заглушка)
+            List<Log> unsentLogs = appDao.getUnsentLogs();
+            if (unsentLogs.isEmpty()) {
+                runOnUiThread(() ->
+                        Toast.makeText(this, "Нет данных для отправки", Toast.LENGTH_SHORT).show()
+                );
+                return;
+            }
 
-            runOnUiThread(() ->
-                    Toast.makeText(this, "Отправка данных...", Toast.LENGTH_SHORT).show()
-            );
+            // Реальная отправка на сервер
+            String jsonPayload = convertLogsToJson(unsentLogs);
+            boolean success = NetworkUtils.sendEvents(jsonPayload);
+
+            if (success) {
+                for (Log log : unsentLogs) {
+                    appDao.markLogAsSent(log.getDeviceCode(), log.getDatetime());
+                }
+                runOnUiThread(() ->
+                        Toast.makeText(this, "Отправлено " + unsentLogs.size() + " записей", Toast.LENGTH_SHORT).show()
+                );
+            } else {
+                runOnUiThread(() ->
+                        Toast.makeText(this, "Ошибка отправки", Toast.LENGTH_SHORT).show()
+                );
+            }
         }).start();
     }
 
@@ -90,10 +123,15 @@ public class MainActivity extends AppCompatActivity {
         Runnable senderTask = new Runnable() {
             @Override
             public void run() {
-                sendAllEventsToServer();
+                sendUnsentLogsToServer();
                 handler.postDelayed(this, 10 * 60 * 1000);
             }
         };
         handler.postDelayed(senderTask, 10 * 60 * 1000);
+    }
+
+    private String convertLogsToJson(List<Log> logs) {
+        // Реализация конвертации в JSON
+        return "[]"; // Заглушка
     }
 }
