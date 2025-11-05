@@ -26,6 +26,9 @@
         android:background="@drawable/white_input_background"
         android:padding="12dp"
         android:textSize="18sp"
+        android:textColor="#000000"
+        android:textColorHint="#666666"
+        android:inputType="number"
         android:hint="Введите номер бригады" />
 
 
