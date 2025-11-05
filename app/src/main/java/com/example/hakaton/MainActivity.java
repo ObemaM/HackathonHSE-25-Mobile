@@ -8,6 +8,15 @@ import android.widget.Button;
 import android.widget.EditText;
 import android.widget.Toast;
 import androidx.appcompat.app.AppCompatActivity;
+
+import org.json.JSONArray;
+import org.json.JSONException;
+import org.json.JSONObject;
+
+import java.io.OutputStream;
+import java.net.HttpURLConnection;
+import java.net.URL;
+import java.nio.charset.StandardCharsets;
 import java.util.List;
 
 public class MainActivity extends AppCompatActivity {
@@ -92,31 +101,89 @@ public class MainActivity extends AppCompatActivity {
 
     private void sendUnsentLogsToServer() {
         new Thread(() -> {
+            appDao.getAllLogs(); // Обновляем кэш
             List<Log> unsentLogs = appDao.getUnsentLogs();
             if (unsentLogs.isEmpty()) {
                 runOnUiThread(() ->
-                        Toast.makeText(this, "Нет данных для отправки", Toast.LENGTH_SHORT).show()
+                        Toast.makeText(MainActivity.this, "Нет данных для отправки", Toast.LENGTH_SHORT).show()
                 );
                 return;
             }
 
-            // Реальная отправка на сервер
-            String jsonPayload = convertLogsToJson(unsentLogs);
-            boolean success = NetworkUtils.sendEvents(jsonPayload);
+            try {
+                // Конвертируем логи в JSON
+                String jsonPayload = convertLogsToJson(unsentLogs);
 
-            if (success) {
-                for (Log log : unsentLogs) {
-                    appDao.markLogAsSent(log.getDeviceCode(), log.getDatetime());
+                // Отправляем на сервер
+                boolean success = sendToServer(jsonPayload);
+
+                if (success) {
+                    // Помечаем логи как отправленные
+                    for (Log log : unsentLogs) {
+                        appDao.markLogAsSent(log.getDeviceCode(), log.getDatetime());
+                    }
+
+                    runOnUiThread(() ->
+                            Toast.makeText(MainActivity.this,
+                                    "Успешно отправлено " + unsentLogs.size() + " записей",
+                                    Toast.LENGTH_SHORT).show()
+                    );
+                } else {
+                    runOnUiThread(() ->
+                            Toast.makeText(MainActivity.this, "Ошибка отправки", Toast.LENGTH_SHORT).show()
+                    );
                 }
+
+            } catch (Exception e) {
+                e.printStackTrace();
                 runOnUiThread(() ->
-                        Toast.makeText(this, "Отправлено " + unsentLogs.size() + " записей", Toast.LENGTH_SHORT).show()
-                );
-            } else {
-                runOnUiThread(() ->
-                        Toast.makeText(this, "Ошибка отправки", Toast.LENGTH_SHORT).show()
+                        Toast.makeText(MainActivity.this, "Ошибка: " + e.getMessage(), Toast.LENGTH_LONG).show()
                 );
             }
         }).start();
+    }
+
+    private String convertLogsToJson(List<Log> logs) {
+        JSONArray jsonArray = new JSONArray();
+        try {
+            for (Log log : logs) {
+                JSONObject jsonLog = new JSONObject();
+                jsonLog.put("action_code", log.getActionCode());
+                jsonLog.put("app_version", log.getAppVersion());
+                jsonLog.put("device_code", log.getDeviceCode());
+                jsonLog.put("datetime", log.getDatetime());
+                jsonArray.put(jsonLog);
+            }
+            return jsonArray.toString();
+        } catch (JSONException e) {
+            e.printStackTrace();
+            return "[]";
+        }
+    }
+
+    private boolean sendToServer(String jsonPayload) {
+        try {
+            URL url = new URL("http://10.0.2.2:8080/api/logs");
+            HttpURLConnection connection = (HttpURLConnection) url.openConnection();
+            connection.setRequestMethod("POST");
+            connection.setRequestProperty("Content-Type", "application/json");
+            connection.setDoOutput(true);
+            connection.setConnectTimeout(3000);
+            connection.setReadTimeout(3000);
+
+            // Отправляем данные
+            OutputStream os = connection.getOutputStream();
+            os.write(jsonPayload.getBytes(StandardCharsets.UTF_8));
+            os.close();
+
+            // Проверяем что ответ 200
+            int responseCode = connection.getResponseCode();
+            return responseCode == 200;
+
+        } catch (Exception e) {
+            e.printStackTrace();
+            return false;
+        }
     }
 
     private void startBackgroundSender() {
@@ -127,11 +194,6 @@ public class MainActivity extends AppCompatActivity {
                 handler.postDelayed(this, 10 * 60 * 1000);
             }
         };
-        handler.postDelayed(senderTask, 10 * 60 * 1000);
-    }
-
-    private String convertLogsToJson(List<Log> logs) {
-        // Реализация конвертации в JSON
-        return "[]"; // Заглушка
+        handler.postDelayed(senderTask,  10 * 60 * 1000);
     }
 }
