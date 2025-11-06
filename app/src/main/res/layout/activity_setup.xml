@@ -20,27 +20,30 @@
     <TextView
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:text="РЕГИОН"
+        android:text="КОД РЕГИОНА"
         android:textSize="16sp"
         android:textStyle="bold"
         android:textColor="#000000" />
 
+    <!-- Поле: СМП -->
     <EditText
         android:id="@+id/editTextRegion"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:layout_marginTop="4dp"
         android:background="@drawable/white_input_background"
+        android:hint="Введите код региона"
         android:padding="12dp"
         android:textSize="18sp"
-        android:hint="Например: REG001" />
+        android:inputType="number"
+        android:textColorHint="#666666"
+        android:textColor="#000000" />
 
-    <!-- Поле: СМП -->
     <TextView
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:layout_marginTop="16dp"
-        android:text="НОМЕР СМП"
+        android:text="КОД СМП"
         android:textSize="16sp"
         android:textStyle="bold"
         android:textColor="#000000" />
@@ -53,9 +56,12 @@
         android:background="@drawable/white_input_background"
         android:padding="12dp"
         android:textSize="18sp"
-        android:hint="Например: SMC001" />
+        android:inputType="number"
+        android:hint="Введите код СМП"
+        android:textColorHint="#666666"
+        android:textColor="#000000" />
 
-    <Button
+    <androidx.appcompat.widget.AppCompatButton
         android:id="@+id/buttonSave"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"

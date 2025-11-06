@@ -1,11 +1,14 @@
 package com.example.hakaton;
 
+import android.content.Intent;
+import android.content.SharedPreferences;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
 import android.provider.Settings;
 import android.widget.Button;
 import android.widget.EditText;
+import android.widget.TextView;
 import android.widget.Toast;
 import androidx.appcompat.app.AppCompatActivity;
 
@@ -27,10 +30,19 @@ public class MainActivity extends AppCompatActivity {
     private Handler handler = new Handler(Looper.getMainLooper());
     private String deviceCode;
     private String appVersion = "1";
+    private TextView textBottomInfo;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+
+        if (isFirstRun()) {
+            // Если первый запуск - переходим к настройке
+            startActivity(new Intent(this, SetUpActivity.class));
+            finish(); // Закрываем MainActivity
+            return;   // Не продолжаем загрузку
+        }
+
         setContentView(R.layout.activity_main);
 
         // Инициализация UI
@@ -38,6 +50,8 @@ public class MainActivity extends AppCompatActivity {
         buttonA = findViewById(R.id.buttonA);
         buttonB = findViewById(R.id.buttonB);
         buttonSend = findViewById(R.id.buttonSend);
+        textBottomInfo = findViewById(R.id.textBottomInfo);
+        updateBottomText();
 
         // Инициализация Room
         AppDatabase db = AppDatabase.getDatabase(this);
@@ -58,6 +72,7 @@ public class MainActivity extends AppCompatActivity {
         startBackgroundSender();
     }
 
+    // Получение уникального Id девайса
     private String getUniqueDeviceId() {
         return Settings.Secure.getString(
                 getContentResolver(),
@@ -65,6 +80,7 @@ public class MainActivity extends AppCompatActivity {
         );
     }
 
+    // Инициализация действий
     private void initializeActions() {
         new Thread(() -> {
             try {
@@ -81,6 +97,7 @@ public class MainActivity extends AppCompatActivity {
         }).start();
     }
 
+    // Запись лога в локальную БД
     private void logAction(String actionCode, String actionText) {
         String brigadeNumber = editTextBrigade.getText().toString().trim();
         if (brigadeNumber.isEmpty()) {
@@ -99,6 +116,7 @@ public class MainActivity extends AppCompatActivity {
         }).start();
     }
 
+    // Отправка логов на сервер
     private void sendUnsentLogsToServer() {
         new Thread(() -> {
             appDao.getAllLogs(); // Обновляем кэш
@@ -143,11 +161,20 @@ public class MainActivity extends AppCompatActivity {
         }).start();
     }
 
+    // Конвертация логов в JSON
     private String convertLogsToJson(List<Log> logs) {
         JSONArray jsonArray = new JSONArray();
         try {
+            SharedPreferences prefs = getSharedPreferences("app_settings", MODE_PRIVATE);
+            String regionCode = prefs.getString("region_code", "");
+            String smcCode = prefs.getString("smc_code", "");
+            String brigadeNumber = editTextBrigade.getText().toString().trim();
+
             for (Log log : logs) {
                 JSONObject jsonLog = new JSONObject();
+                jsonLog.put("region_code", regionCode);
+                jsonLog.put("smp_code", smcCode);
+                jsonLog.put("team_number", brigadeNumber);
                 jsonLog.put("action_code", log.getActionCode());
                 jsonLog.put("app_version", log.getAppVersion());
                 jsonLog.put("device_code", log.getDeviceCode());
@@ -161,6 +188,7 @@ public class MainActivity extends AppCompatActivity {
         }
     }
 
+    // Отправка конвертированных в JSON логов на сервер
     private boolean sendToServer(String jsonPayload) {
         try {
             URL url = new URL("http://10.0.2.2:8080/api/logs");
@@ -186,6 +214,7 @@ public class MainActivity extends AppCompatActivity {
         }
     }
 
+    // Начало отсчета 10 минут на для отправки логов на фоне
     private void startBackgroundSender() {
         Runnable senderTask = new Runnable() {
             @Override
@@ -195,5 +224,22 @@ public class MainActivity extends AppCompatActivity {
             }
         };
         handler.postDelayed(senderTask,  10 * 60 * 1000);
+    }
+
+    // Проверка на первый запуск приложения
+    private boolean isFirstRun() {
+        SharedPreferences prefs = getSharedPreferences("app_settings", MODE_PRIVATE);
+        return prefs.getBoolean("is_first_run", true);
+    }
+
+    // Отображение информации о версии, коде региона и коде СМП
+    private void updateBottomText() {
+        SharedPreferences prefs = getSharedPreferences("app_settings", MODE_PRIVATE);
+        String regionCode = prefs.getString("region_code", "");
+        String smcCode = prefs.getString("smc_code", "");
+
+        // Используем appVersion из поля класса и данные из настроек
+        String bottomText = "Версия: " + appVersion + " | Код региона: " + regionCode + " | Код СМП: " + smcCode;
+        textBottomInfo.setText(bottomText);
     }
 }

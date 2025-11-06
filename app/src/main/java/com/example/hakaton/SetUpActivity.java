@@ -11,7 +11,7 @@ import androidx.appcompat.app.AppCompatActivity;
 
 public class SetUpActivity extends AppCompatActivity {
 
-    private EditText editTextRegion, editTextSmc; // ← Убрали brigade, добавили region
+    private EditText editTextRegion, editTextSmc;
     private Button buttonSave;
 
     @Override
@@ -19,7 +19,7 @@ public class SetUpActivity extends AppCompatActivity {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_setup);
 
-        // Инициализация полей (только регион и СМП)
+        // Инициализация полей (код региона и код СМП)
         editTextRegion = findViewById(R.id.editTextRegion);
         editTextSmc = findViewById(R.id.editTextSmc);
         buttonSave = findViewById(R.id.buttonSave);
@@ -42,7 +42,7 @@ public class SetUpActivity extends AppCompatActivity {
             return;
         }
 
-        // Сохраняем ТОЛЬКО регион и СМП
+        // Сохраняем коды региона и СМП
         SharedPreferences prefs = getSharedPreferences("app_settings", MODE_PRIVATE);
         prefs.edit()
                 .putString("region_code", region)
@@ -50,7 +50,7 @@ public class SetUpActivity extends AppCompatActivity {
                 .putBoolean("is_first_run", false)
                 .apply();
 
-        // Переход в основное приложение
+        // Переход в основной экран приложения
         Intent intent = new Intent(SetUpActivity.this, MainActivity.class);
         startActivity(intent);
         finish();

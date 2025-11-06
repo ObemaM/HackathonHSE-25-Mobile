@@ -16,8 +16,8 @@
         android:roundIcon="@mipmap/ic_launcher_round"
         android:supportsRtl="true"
         android:theme="@style/Theme.Hakaton">
-        
-        <!-- Здесь будет объявление вашей MainActivity -->
+
+        <!-- Главная активность -->
         <activity
             android:name=".MainActivity"
             android:exported="true">
@@ -26,6 +26,10 @@
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
+
+        <activity
+            android:name=".SetUpActivity"
+            android:exported="false" />
         
     </application>
 
