@@ -6,11 +6,15 @@ import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
 import android.provider.Settings;
+import android.text.Editable;
+import android.text.TextWatcher;
 import android.widget.Button;
 import android.widget.EditText;
 import android.widget.TextView;
 import android.widget.Toast;
 import androidx.appcompat.app.AppCompatActivity;
+import androidx.recyclerview.widget.LinearLayoutManager;
+import androidx.recyclerview.widget.RecyclerView;
 
 import org.json.JSONArray;
 import org.json.JSONException;
@@ -25,33 +29,33 @@ import java.util.List;
 public class MainActivity extends AppCompatActivity {
 
     private EditText editTextBrigade;
-    private Button buttonA, buttonB, buttonSend;
-    private AppDao appDao; // ← Room DAO
-    private Handler handler = new Handler(Looper.getMainLooper());
+    private AppDao appDao;
+    private final Handler handler = new Handler(Looper.getMainLooper());
     private String deviceCode;
-    private String appVersion = "1";
+    private final String appVersion = AppConfig.APP_VERSION;
     private TextView textBottomInfo;
+    private RecyclerView recyclerViewActions;
+    private EditText editTextSearch;
+    private ActionsAdapter adapter;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
 
         if (isFirstRun()) {
-            // Если первый запуск - переходим к настройке
             startActivity(new Intent(this, SetUpActivity.class));
-            finish(); // Закрываем MainActivity
-            return;   // Не продолжаем загрузку
+            finish();
+            return;
         }
 
         setContentView(R.layout.activity_main);
 
         // Инициализация UI
         editTextBrigade = findViewById(R.id.editTextBrigade);
-        buttonA = findViewById(R.id.buttonA);
-        buttonB = findViewById(R.id.buttonB);
-        buttonSend = findViewById(R.id.buttonSend);
+        Button buttonSend = findViewById(R.id.buttonSend);
+        recyclerViewActions = findViewById(R.id.recyclerViewActions);
+        editTextSearch = findViewById(R.id.editTextSearch);
         textBottomInfo = findViewById(R.id.textBottomInfo);
-        updateBottomText();
 
         // Инициализация Room
         AppDatabase db = AppDatabase.getDatabase(this);
@@ -60,36 +64,11 @@ public class MainActivity extends AppCompatActivity {
         // Получаем device_code (постоянный для устройства)
         deviceCode = getUniqueDeviceId();
 
+        // Инициализация данных
+        initializeAppData();
+
         // Обработчики кнопок
-        buttonA.setOnClickListener(v -> {
-            if (!buttonA.isEnabled()) {
-                Toast.makeText(MainActivity.this, "Подождите 3 секунды", Toast.LENGTH_SHORT).show();
-                return;
-            }
-
-            // Отключаем кнопку → она станет серой
-            buttonA.setEnabled(false);
-            logAction("1", "Кнопка A нажата");
-
-
-            handler.postDelayed(() -> buttonA.setEnabled(true), 3000);
-        });
-
-        buttonB.setOnClickListener(v -> {
-            if (!buttonB.isEnabled()) {
-                Toast.makeText(MainActivity.this, "Подождите 3 секунды", Toast.LENGTH_SHORT).show();
-                return;
-            }
-
-            buttonB.setEnabled(false);
-            logAction("2", "Кнопка B нажата");
-
-            handler.postDelayed(() -> buttonB.setEnabled(true), 20);
-        });
         buttonSend.setOnClickListener(v -> sendUnsentLogsToServer());
-
-        // Предварительное создание действий в базе
-        initializeActions();
 
         // Фоновая отправка каждые 10 минут
         startBackgroundSender();
@@ -103,25 +82,70 @@ public class MainActivity extends AppCompatActivity {
         );
     }
 
-    // Инициализация действий
-    private void initializeActions() {
+    // Метод инициализации данных
+    private void initializeAppData() {
         new Thread(() -> {
-            try {
-                appDao.insertAction(new Action("Кнопка A нажата", "1", appVersion));
-            } catch (Exception e) {
+            // Инициализируем действия в БД
+            initializeActionsInDatabase();
 
-            }
-
-            try {
-                appDao.insertAction(new Action("Кнопка B нажата", "2", appVersion));
-            } catch (Exception e) {
-
-            }
+            // Настраиваем UI
+            runOnUiThread(() -> {
+                setupActionsUI();
+                setupSearch();
+                updateBottomText();
+            });
         }).start();
     }
 
+    // Инициализация действий в БД
+    private void initializeActionsInDatabase() {
+        for (ActionItem actionItem : AppConfig.ACTIONS) {
+            try {
+                Action action = new Action(
+                        actionItem.getActionText(),
+                        actionItem.getActionCode(),
+                        appVersion
+                );
+                appDao.insertAction(action);
+            } catch (Exception e) {
+
+            }
+        }
+    }
+
+    // Настройка списка действий
+    private void setupActionsUI() {
+        List<ActionItem> actionItems = AppConfig.ACTIONS;
+
+        recyclerViewActions.setLayoutManager(new LinearLayoutManager(this));
+        adapter = new ActionsAdapter(actionItems, this::onActionClick);
+        recyclerViewActions.setAdapter(adapter);
+    }
+
+    // Настройка поиска
+    private void setupSearch() {
+        editTextSearch.addTextChangedListener(new TextWatcher() {
+            @Override
+            public void beforeTextChanged(CharSequence s, int start, int count, int after) {}
+
+            @Override
+            public void onTextChanged(CharSequence s, int start, int before, int count) {
+                if (adapter != null) {
+                    adapter.filter(s.toString());
+                }
+            }
+
+            @Override
+            public void afterTextChanged(Editable s) {}
+        });
+    }
+
+    private void onActionClick(ActionItem action) {
+        logAction(action.getActionCode());
+    }
+
     // Запись лога в локальную БД
-    private void logAction(String actionCode, String actionText) {
+    private void logAction(String actionCode) {
         String teamNumber = editTextBrigade.getText().toString().trim();
         if (teamNumber.isEmpty()) {
             Toast.makeText(this, "Введите номер бригады", Toast.LENGTH_SHORT).show();
@@ -263,5 +287,17 @@ public class MainActivity extends AppCompatActivity {
         // Используем appVersion из поля класса и данные из настроек
         String bottomText = "Версия: " + appVersion + " | Код региона: " + regionCode + " | Код СМП: " + smcCode;
         textBottomInfo.setText(bottomText);
+    }
+
+    // Метод для времени восстановления кнопки
+    void setupAntiSpamButton(Button button, Runnable action) {
+        button.setOnClickListener(v -> {
+            button.setEnabled(false);
+
+            // Действие кнопки
+            action.run();
+
+            handler.postDelayed(() -> button.setEnabled(true), 1000);
+        });
     }
 }

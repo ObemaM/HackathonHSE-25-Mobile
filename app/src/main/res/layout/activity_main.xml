@@ -4,8 +4,7 @@
     android:layout_height="match_parent"
     android:orientation="vertical"
     android:background="#B0C4DE"
-    android:padding="20dp">
-
+    android:padding="16dp">
 
     <!-- Поле "БРИГАДА" -->
     <TextView
@@ -21,7 +20,6 @@
         android:id="@+id/editTextBrigade"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:layout_below="@id/textViewBrigade"
         android:layout_marginTop="4dp"
         android:background="@drawable/white_input_background"
         android:padding="12dp"
@@ -31,44 +29,39 @@
         android:inputType="number"
         android:hint="Введите номер бригады" />
 
-
-
-    <!-- Кнопка А -->
-
-    <androidx.appcompat.widget.AppCompatButton
-        android:id="@+id/buttonA"
+    <!-- Поле поиска -->
+    <EditText
+        android:id="@+id/editTextSearch"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:layout_below="@id/editTextBrigade"
-        android:layout_marginTop="24dp"
-        android:background="@drawable/blue_button_background"
-        android:padding="16dp"
-        android:text="КНОПКА А"
-        android:textColor="#FFFFFF"
+        android:layout_marginTop="16dp"
+        android:background="@drawable/white_input_background"
+        android:padding="12dp"
         android:textSize="18sp"
-        android:textStyle="bold" />
+        android:textColor="#000000"
+        android:textColorHint="#666666"
+        android:inputType="text"
+        android:hint="Найдите действие"
+        android:drawableStart="@drawable/search_icon_custom" />
 
-    <!-- Кнопка B -->
-    <androidx.appcompat.widget.AppCompatButton
-        android:id="@+id/buttonB"
+    <!-- Список кнопок-действий -->
+    <androidx.recyclerview.widget.RecyclerView
+        android:id="@+id/recyclerViewActions"
         android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:layout_below="@id/buttonA"
-        android:layout_marginTop="12dp"
-        android:background="@drawable/blue_button_background"
-        android:text="КНОПКА B"
-        android:textColor="#FFFFFF"
-        android:textSize="18sp"
-        android:textStyle="bold"
-        android:padding="16dp" />
+        android:layout_height="0dp"
+        android:layout_weight="1"
+        android:layout_marginTop="8dp"
+        android:scrollbars="vertical"
+        android:fadeScrollbars="false"
+        android:scrollbarThumbVertical="@drawable/custom_scrollbar"
+        android:scrollbarSize="5dp" />
 
-    <!-- Кнопка Отправить данные -->
+    <!-- Кнопка отправки -->
     <androidx.appcompat.widget.AppCompatButton
         android:id="@+id/buttonSend"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:layout_below="@id/buttonB"
-        android:layout_marginTop="24dp"
+        android:layout_marginTop="16dp"
         android:background="@drawable/blue_button_background"
         android:text="ОТПРАВИТЬ ДАННЫЕ"
         android:textColor="#FFFFFF"
@@ -76,6 +69,7 @@
         android:textStyle="bold"
         android:padding="16dp" />
 
+    <!-- Инфо внизу -->
     <TextView
         android:id="@+id/textBottomInfo"
         android:layout_width="match_parent"

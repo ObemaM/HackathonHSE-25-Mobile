@@ -12,7 +12,6 @@ import androidx.appcompat.app.AppCompatActivity;
 public class SetUpActivity extends AppCompatActivity {
 
     private EditText editTextRegion, editTextSmc;
-    private Button buttonSave;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -22,14 +21,9 @@ public class SetUpActivity extends AppCompatActivity {
         // Инициализация полей (код региона и код СМП)
         editTextRegion = findViewById(R.id.editTextRegion);
         editTextSmc = findViewById(R.id.editTextSmc);
-        buttonSave = findViewById(R.id.buttonSave);
+        Button buttonSave = findViewById(R.id.buttonSave);
 
-        buttonSave.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View v) {
-                saveAndProceed();
-            }
-        });
+        buttonSave.setOnClickListener(v -> saveAndProceed());
     }
 
     private void saveAndProceed() {
