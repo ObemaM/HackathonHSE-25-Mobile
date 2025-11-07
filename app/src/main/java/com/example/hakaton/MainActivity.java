@@ -61,8 +61,31 @@ public class MainActivity extends AppCompatActivity {
         deviceCode = getUniqueDeviceId();
 
         // Обработчики кнопок
-        buttonA.setOnClickListener(v -> logAction("1", "Кнопка A нажата"));
-        buttonB.setOnClickListener(v -> logAction("2", "Кнопка B нажата"));
+        buttonA.setOnClickListener(v -> {
+            if (!buttonA.isEnabled()) {
+                Toast.makeText(MainActivity.this, "Подождите 3 секунды", Toast.LENGTH_SHORT).show();
+                return;
+            }
+
+            // Отключаем кнопку → она станет серой
+            buttonA.setEnabled(false);
+            logAction("1", "Кнопка A нажата");
+
+
+            handler.postDelayed(() -> buttonA.setEnabled(true), 3000);
+        });
+
+        buttonB.setOnClickListener(v -> {
+            if (!buttonB.isEnabled()) {
+                Toast.makeText(MainActivity.this, "Подождите 3 секунды", Toast.LENGTH_SHORT).show();
+                return;
+            }
+
+            buttonB.setEnabled(false);
+            logAction("2", "Кнопка B нажата");
+
+            handler.postDelayed(() -> buttonB.setEnabled(true), 20);
+        });
         buttonSend.setOnClickListener(v -> sendUnsentLogsToServer());
 
         // Предварительное создание действий в базе
