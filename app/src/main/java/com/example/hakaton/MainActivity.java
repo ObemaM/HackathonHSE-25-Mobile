@@ -99,15 +99,15 @@ public class MainActivity extends AppCompatActivity {
 
     // Запись лога в локальную БД
     private void logAction(String actionCode, String actionText) {
-        String brigadeNumber = editTextBrigade.getText().toString().trim();
-        if (brigadeNumber.isEmpty()) {
+        String teamNumber = editTextBrigade.getText().toString().trim();
+        if (teamNumber.isEmpty()) {
             Toast.makeText(this, "Введите номер бригады", Toast.LENGTH_SHORT).show();
             return;
         }
 
         new Thread(() -> {
             // Создаем лог
-            Log log = new Log(actionCode, appVersion, deviceCode);
+            Log log = new Log(teamNumber, actionCode, appVersion, deviceCode);
             appDao.insertLog(log);
 
             runOnUiThread(() ->
@@ -168,13 +168,12 @@ public class MainActivity extends AppCompatActivity {
             SharedPreferences prefs = getSharedPreferences("app_settings", MODE_PRIVATE);
             String regionCode = prefs.getString("region_code", "");
             String smcCode = prefs.getString("smc_code", "");
-            String brigadeNumber = editTextBrigade.getText().toString().trim();
 
             for (Log log : logs) {
                 JSONObject jsonLog = new JSONObject();
                 jsonLog.put("region_code", regionCode);
                 jsonLog.put("smp_code", smcCode);
-                jsonLog.put("team_number", brigadeNumber);
+                jsonLog.put("team_number", log.getTeamNumber());
                 jsonLog.put("action_code", log.getActionCode());
                 jsonLog.put("app_version", log.getAppVersion());
                 jsonLog.put("device_code", log.getDeviceCode());

@@ -19,6 +19,9 @@ import java.util.Locale;
         )
 )
 public class Log {
+    @ColumnInfo(name = "team_number")
+    private String teamNumber;
+
     @NonNull
     @ColumnInfo(name = "action_code")
     private String actionCode = "";
@@ -40,7 +43,8 @@ public class Log {
 
     public Log() {}
 
-    public Log(@NonNull String actionCode, @NonNull String appVersion, @NonNull String deviceCode) {
+    public Log(@NonNull String teamNumber, @NonNull String actionCode, @NonNull String appVersion, @NonNull String deviceCode) {
+        this.teamNumber = teamNumber;
         this.actionCode = actionCode;
         this.appVersion = appVersion;
         this.deviceCode = deviceCode;
@@ -55,6 +59,8 @@ public class Log {
     }
 
     // Геттеры и сеттеры
+    public String getTeamNumber() { return teamNumber; }
+    public void setTeamNumber(String teamNumber) { this.teamNumber = teamNumber; }
     @NonNull
     public String getActionCode() { return actionCode; }
     public void setActionCode(@NonNull String actionCode) { this.actionCode = actionCode; }
