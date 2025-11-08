@@ -169,9 +169,8 @@ public class MainActivity extends AppCompatActivity {
     // Отправка логов на сервер
     private void sendUnsentLogsToServer() {
         new Thread(() -> {
-            appDao.getAllLogs(); // Обновляем кэш
-            List<Log> unsentLogs = appDao.getUnsentLogs();
-            if (unsentLogs.isEmpty()) {
+            List<Log> allLogs = appDao.getAllLogs();
+            if (allLogs.isEmpty()) {
                 runOnUiThread(() ->
                         Toast.makeText(MainActivity.this, "Нет данных для отправки", Toast.LENGTH_SHORT).show()
                 );
@@ -180,20 +179,18 @@ public class MainActivity extends AppCompatActivity {
 
             try {
                 // Конвертируем логи в JSON
-                String jsonPayload = convertLogsToJson(unsentLogs);
+                String jsonPayload = convertLogsToJson(allLogs);
 
                 // Отправляем на сервер
                 boolean success = sendToServer(jsonPayload);
 
                 if (success) {
-                    // Помечаем логи как отправленные
-                    for (Log log : unsentLogs) {
-                        appDao.markLogAsSent(log.getDeviceCode(), log.getDatetime());
-                    }
+                    // Удаляем отправленные логи
+                    appDao.deleteAllLogs();
 
                     runOnUiThread(() ->
                             Toast.makeText(MainActivity.this,
-                                    "Успешно отправлено " + unsentLogs.size() + " записей",
+                                    "Успешно отправлено " + allLogs.size() + " записей",
                                     Toast.LENGTH_SHORT).show()
                     );
                 } else {

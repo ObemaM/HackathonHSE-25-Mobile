@@ -30,9 +30,6 @@ public class Log {
     @ColumnInfo(name = "app_version")
     private String appVersion = "";
 
-    @ColumnInfo(name = "is_sent")
-    private boolean isSent;
-
     @NonNull
     @ColumnInfo(name = "device_code")
     private String deviceCode = "";
@@ -48,7 +45,6 @@ public class Log {
         this.actionCode = actionCode;
         this.appVersion = appVersion;
         this.deviceCode = deviceCode;
-        this.isSent = false;
         this.datetime = getCurrentDateTimeString();
     }
 
@@ -68,9 +64,6 @@ public class Log {
     @NonNull
     public String getAppVersion() { return appVersion; }
     public void setAppVersion(@NonNull String appVersion) { this.appVersion = appVersion; }
-
-    public boolean isSent() { return isSent; }
-    public void setSent(boolean sent) { isSent = sent; }
 
     @NonNull
     public String getDeviceCode() { return deviceCode; }
