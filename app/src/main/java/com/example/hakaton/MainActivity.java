@@ -2,6 +2,8 @@ package com.example.hakaton;
 
 import android.content.Intent;
 import android.content.SharedPreferences;
+import android.content.pm.PackageManager;
+import android.os.Build;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
@@ -13,20 +15,13 @@ import android.widget.EditText;
 import android.widget.TextView;
 import android.widget.Toast;
 import androidx.appcompat.app.AppCompatActivity;
+import androidx.core.app.ActivityCompat;
+import androidx.core.content.ContextCompat;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 
-import org.json.JSONArray;
-import org.json.JSONException;
-import org.json.JSONObject;
-
-import java.io.BufferedReader;
-import java.io.InputStreamReader;
-import java.io.OutputStream;
-import java.net.HttpURLConnection;
-import java.net.URL;
-import java.nio.charset.StandardCharsets;
 import java.util.List;
+
 
 public class MainActivity extends AppCompatActivity {
 
@@ -74,7 +69,15 @@ public class MainActivity extends AppCompatActivity {
         setupAntiSpamButton(buttonSend, this::sendUnsentLogsToServer);
 
         // Фоновая отправка каждые 10 минут
-        startBackgroundSender();
+        requestNotificationPermission();
+        startSyncService();
+    }
+
+    @Override
+    protected void onDestroy() {
+        super.onDestroy();
+        // Останавливаем сервис при закрытии приложения
+        stopSyncService();
     }
 
     // Получение уникального Id девайса
@@ -177,102 +180,54 @@ public class MainActivity extends AppCompatActivity {
                 return;
             }
 
-            try {
-                // Конвертируем логи в JSON
-                String jsonPayload = convertLogsToJson(allLogs);
+            boolean success = LogSender.sendLogs(MainActivity.this, allLogs);
 
-                // Отправляем на сервер
-                boolean success = sendToServer(jsonPayload);
+            if (success) {
+                // Удаляем отправленные логи
+                appDao.deleteAllLogs();
 
-                if (success) {
-                    // Удаляем отправленные логи
-                    appDao.deleteAllLogs();
-
-                    runOnUiThread(() ->
-                            Toast.makeText(MainActivity.this,
-                                    "Успешно отправлено " + allLogs.size() + " записей",
-                                    Toast.LENGTH_SHORT).show()
-                    );
-                } else {
-                    runOnUiThread(() ->
-                            Toast.makeText(MainActivity.this, "Ошибка отправки", Toast.LENGTH_SHORT).show()
-                    );
-                }
-
-            } catch (Exception e) {
-                e.printStackTrace();
                 runOnUiThread(() ->
-                        Toast.makeText(MainActivity.this, "Ошибка: " + e.getMessage(), Toast.LENGTH_LONG).show()
+                        Toast.makeText(MainActivity.this,
+                                "Успешно отправлено " + allLogs.size() + " записей",
+                                Toast.LENGTH_SHORT).show()
+                );
+            } else {
+                runOnUiThread(() ->
+                        Toast.makeText(MainActivity.this, "Ошибка отправки", Toast.LENGTH_SHORT).show()
                 );
             }
         }).start();
     }
 
-    // Конвертация логов в JSON
-    private String convertLogsToJson(List<Log> logs) {
-        JSONArray jsonArray = new JSONArray();
-        try {
-            SharedPreferences prefs = getSharedPreferences("app_settings", MODE_PRIVATE);
-            String regionCode = prefs.getString("region_code", "");
-            String smcCode = prefs.getString("smc_code", "");
+    // Запрашивание разрешение на уведомления
+    private void requestNotificationPermission() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            if (ContextCompat.checkSelfPermission(this,
+                    android.Manifest.permission.POST_NOTIFICATIONS) !=
+                    PackageManager.PERMISSION_GRANTED) {
 
-            for (Log log : logs) {
-                JSONObject jsonLog = new JSONObject();
-                jsonLog.put("region_code", regionCode);
-                jsonLog.put("smp_code", smcCode);
-                jsonLog.put("team_number", log.getTeamNumber());
-                jsonLog.put("action_code", log.getActionCode());
-                jsonLog.put("app_version", log.getAppVersion());
-                jsonLog.put("device_code", log.getDeviceCode());
-                jsonLog.put("datetime", log.getDatetime());
-                jsonArray.put(jsonLog);
+                ActivityCompat.requestPermissions(this,
+                        new String[]{android.Manifest.permission.POST_NOTIFICATIONS},
+                        123);
             }
-            return jsonArray.toString();
-        } catch (JSONException e) {
-            e.printStackTrace();
-            return "[]";
-        }
-    }
-
-    // Отправка конвертированных в JSON логов на сервер
-    private boolean sendToServer(String jsonPayload) {
-        try {
-            URL url = new URL("http://46.146.248.104:10880/api/mobile/logs/batch");
-            HttpURLConnection connection = (HttpURLConnection) url.openConnection();
-            connection.setRequestMethod("POST");
-            connection.setRequestProperty("Content-Type", "application/json");
-            connection.setDoOutput(true);
-            connection.setConnectTimeout(5000);
-            connection.setReadTimeout(5000);
-
-            // Отправляем данные
-            OutputStream os = connection.getOutputStream();
-            os.write(jsonPayload.getBytes(StandardCharsets.UTF_8));
-            os.close();
-
-            // Проверяем ответ
-            if (connection.getResponseCode() == 200) {
-                String response = new BufferedReader(new InputStreamReader(connection.getInputStream()))
-                        .readLine();
-                return new JSONObject(response).getBoolean("success");
-            }
-            return false;
-
-        } catch (Exception e) {
-            return false;
         }
     }
 
     // Начало отсчета 10 минут на для отправки логов на фоне
-    private void startBackgroundSender() {
-        Runnable senderTask = new Runnable() {
-            @Override
-            public void run() {
-                sendUnsentLogsToServer();
-                handler.postDelayed(this, 10 * 60 * 1000);
-            }
-        };
-        handler.postDelayed(senderTask,  10 * 60 * 1000);
+    private void startSyncService() {
+        Intent serviceIntent = new Intent(this, LogSyncService.class);
+
+        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O) {
+            startForegroundService(serviceIntent);
+        } else {
+            startService(serviceIntent);
+        }
+    }
+
+    // Остановка работы сервиса при закрытии
+    private void stopSyncService() {
+        Intent serviceIntent = new Intent(this, LogSyncService.class);
+        stopService(serviceIntent);
     }
 
     // Проверка на первый запуск приложения
