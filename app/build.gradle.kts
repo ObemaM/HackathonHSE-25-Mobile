@@ -4,12 +4,12 @@ plugins {
 
 android {
     namespace = "com.example.hakaton"
-    compileSdk = 34  // ← просто число
+    compileSdk = 34
 
     defaultConfig {
         applicationId = "com.example.hakaton"
         minSdk = 24
-        targetSdk = 34  // ← просто число
+        targetSdk = 34
         versionCode = 1
         versionName = "1.0"
 

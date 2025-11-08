@@ -20,6 +20,8 @@ import org.json.JSONArray;
 import org.json.JSONException;
 import org.json.JSONObject;
 
+import java.io.BufferedReader;
+import java.io.InputStreamReader;
 import java.io.OutputStream;
 import java.net.HttpURLConnection;
 import java.net.URL;
@@ -52,6 +54,7 @@ public class MainActivity extends AppCompatActivity {
 
         // Инициализация UI
         editTextBrigade = findViewById(R.id.editTextBrigade);
+        setupBrigadeField();
         Button buttonSend = findViewById(R.id.buttonSend);
         recyclerViewActions = findViewById(R.id.recyclerViewActions);
         editTextSearch = findViewById(R.id.editTextSearch);
@@ -68,7 +71,7 @@ public class MainActivity extends AppCompatActivity {
         initializeAppData();
 
         // Обработчики кнопок
-        buttonSend.setOnClickListener(v -> sendUnsentLogsToServer());
+        setupAntiSpamButton(buttonSend, this::sendUnsentLogsToServer);
 
         // Фоновая отправка каждые 10 минут
         startBackgroundSender();
@@ -237,25 +240,28 @@ public class MainActivity extends AppCompatActivity {
     // Отправка конвертированных в JSON логов на сервер
     private boolean sendToServer(String jsonPayload) {
         try {
-            URL url = new URL("http://10.0.2.2:8080/api/logs");
+            URL url = new URL("http://46.146.248.104:10880/api/mobile/logs/batch");
             HttpURLConnection connection = (HttpURLConnection) url.openConnection();
             connection.setRequestMethod("POST");
             connection.setRequestProperty("Content-Type", "application/json");
             connection.setDoOutput(true);
-            connection.setConnectTimeout(3000);
-            connection.setReadTimeout(3000);
+            connection.setConnectTimeout(5000);
+            connection.setReadTimeout(5000);
 
             // Отправляем данные
             OutputStream os = connection.getOutputStream();
             os.write(jsonPayload.getBytes(StandardCharsets.UTF_8));
             os.close();
 
-            // Проверяем что ответ 200
-            int responseCode = connection.getResponseCode();
-            return responseCode == 200;
+            // Проверяем ответ
+            if (connection.getResponseCode() == 200) {
+                String response = new BufferedReader(new InputStreamReader(connection.getInputStream()))
+                        .readLine();
+                return new JSONObject(response).getBoolean("success");
+            }
+            return false;
 
         } catch (Exception e) {
-            e.printStackTrace();
             return false;
         }
     }
@@ -297,7 +303,27 @@ public class MainActivity extends AppCompatActivity {
             // Действие кнопки
             action.run();
 
-            handler.postDelayed(() -> button.setEnabled(true), 1000);
+            handler.postDelayed(() -> button.setEnabled(true), 1500);
+        });
+    }
+
+    // Сохранение номера бригады в памяти
+    private void setupBrigadeField() {
+        // Восстанавливаем сохраненный номер
+        SharedPreferences prefs = getSharedPreferences("app_settings", MODE_PRIVATE);
+        String savedTeamNumber = prefs.getString("team_number", "");
+        editTextBrigade.setText(savedTeamNumber);
+
+        // Сохраняем при любом изменении
+        editTextBrigade.addTextChangedListener(new TextWatcher() {
+            @Override public void beforeTextChanged(CharSequence s, int start, int count, int after) {}
+            @Override public void onTextChanged(CharSequence s, int start, int before, int count) {}
+
+            @Override
+            public void afterTextChanged(Editable s) {
+                String teamNumber = s.toString().trim();
+                prefs.edit().putString("team_number", teamNumber).apply();
+            }
         });
     }
 }
